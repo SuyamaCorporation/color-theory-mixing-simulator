@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Mixing Theory Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  canvas { display: block; }
+  .swatch { transition: background-color 0.3s; }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4">
+<div class="max-w-5xl mx-auto">
+  <h1 class="text-3xl font-bold text-center mb-2 text-white">Color Mixing Theory Simulator</h1>
+  <p class="text-center text-gray-400 mb-6 text-sm">Explore how colors blend in Paint (RYB) vs Light (RGB) models</p>
+
+  <!-- Mode Toggle -->
+  <div class="flex justify-center mb-6">
+    <div class="bg-gray-800 rounded-full p-1 flex gap-1" role="group" aria-label="Mixing mode selector">
+      <button id="btn-ryb" onclick="setMode('ryb')"
+        class="px-6 py-2 rounded-full font-semibold transition-all bg-yellow-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        aria-pressed="true">Paint / Pigment (RYB)</button>
+      <button id="btn-rgb" onclick="setMode('rgb')"
+        class="px-6 py-2 rounded-full font-semibold transition-all text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        aria-pressed="false">Light (RGB)</button>
+    </div>
+  </div>
+
+  <!-- Main Controls -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <!-- Color 1 -->
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <label class="block text-sm font-semibold text-gray-300 mb-3" for="color1">Color 1</label>
+      <input type="color" id="color1" value="#ff0000" oninput="update()"
+        class="w-full h-20 rounded-xl cursor-pointer border-0 bg-transparent" aria-label="Color 1 picker">
+      <div id="color1-hex" class="text-center text-gray-400 text-xs mt-2 font-mono">#ff0000</div>
+      <div id="color1-swatch" class="swatch h-12 rounded-xl mt-2" style="background:#ff0000"></div>
+    </div>
+
+    <!-- Slider -->
+    <div class="bg-gray-800 rounded-2xl p-5 flex flex-col items-center justify-center">
+      <label class="block text-sm font-semibold text-gray-300 mb-2" for="mix-slider">Mix Ratio</label>
+      <div class="flex items-center gap-2 w-full mb-1">
+        <span class="text-xs text-gray-400">C1</span>
+        <input type="range" id="mix-slider" min="0" max="100" value="50" oninput="update()"
+          class="flex-1" aria-label="Mix percentage slider">
+        <span class="text-xs text-gray-400">C2</span>
+      </div>
+      <div id="mix-label" class="text-lg font-bold text-white">50% / 50%</div>
+      <div class="mt-4 text-center">
+        <div class="text-xs text-gray-400 mb-1">Mixed Result</div>
+        <div id="result-swatch" class="swatch w-20 h-20 rounded-full mx-auto border-4 border-gray-600"></div>
+        <div id="result-hex" class="text-xs font-mono text-gray-300 mt-1">#808080</div>
+        <div id="result-name" class="text-xs text-yellow-300 mt-1">gray</div>
+      </div>
+    </div>
+
+    <!-- Color 2 -->
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <label class="block text-sm font-semibold text-gray-300 mb-3" for="color2">Color 2</label>
+      <input type="color" id="color2" value="#0000ff" oninput="update()"
+        class="w-full h-20 rounded-xl cursor-pointer border-0 bg-transparent" aria-label="Color 2 picker">
+      <div id="color2-hex" class="text-center text-gray-400 text-xs mt-2 font-mono">#0000ff</div>
+      <div id="color2-swatch" class="swatch h-12 rounded-xl mt-2" style="background:#0000ff"></div>
+    </div>
+  </div>
+
+  <!-- Side-by-side comparison -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <h2 class="font-bold text-yellow-400 mb-3">Paint / Pigment (RYB) — Subtractive</h2>
+      <div id="ryb-swatch" class="swatch h-16 rounded-xl mb-2"></div>
+      <div id="ryb-hex" class="text-xs font-mono text-gray-400"></div>
+      <div id="ryb-name" class="text-xs text-yellow-300 mt-1"></div>
+    </div>
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <h2 class="font-bold text-blue-400 mb-3">Light (RGB) — Additive</h2>
+      <div id="rgb-swatch" class="swatch h-16 rounded-xl mb-2"></div>
+      <div id="rgb-hex" class="text-xs font-mono text-gray-400"></div>
+      <div id="rgb-name" class="text-xs text-blue-300 mt-1"></div>
+    </div>
+  </div>
+
+  <!-- Color Wheel + Complementary -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <h2 class="font-bold text-gray-200 mb-3">Color Wheel</h2>
+      <canvas id="color-wheel" width="260" height="260" class="mx-auto rounded-full" aria-label="Color wheel showing selected colors and mix position"></canvas>
+    </div>
+    <div class="bg-gray-800 rounded-2xl p-5">
+      <h2 class="font-bold text-gray-200 mb-3">Complementary Colors</h2>
+      <div class="grid grid-cols-3 gap-3 mb-3">
+        <div>
+          <div class="text-xs text-gray-400 mb-1 text-center">Color 1</div>
+          <div id="comp-c1" class="swatch h-14 rounded-xl"></div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 mb-1 text-center">Comp of 1</div>
+          <div id="comp-c1-opp" class="swatch h-14 rounded-xl"></div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 mb-1 text-center">Color 2</div>
+          <div id="comp-c2" class="swatch h-14 rounded-xl"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div></div>
+        <div>
+          <div class="text-xs text-gray-400 mb-1 text-center">Comp of 2</div>
+          <div id="comp-c2-opp" class="swatch h-14 rounded-xl"></div>
+        </div>
+        <div></div>
+      </div>
+      <div class="mt-3 text-xs text-gray-400">
+        <div id="comp-c1-hex" class="font-mono mb-1"></div>
+        <div id="comp-c2-hex" class="font-mono"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explanation Panel -->
+  <div class="bg-gray-800 rounded-2xl p-5 mb-4">
+    <h2 class="font-bold text-gray-200 mb-3">Understanding Color Mixing Models</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-300">
+      <div>
+        <h3 class="font-semibold text-yellow-400 mb-2">Subtractive (RYB / Paint)</h3>
+        <p class="leading-relaxed">Used with physical pigments and paints. Colors are formed by <strong class="text-yellow-200">absorbing (subtracting)</strong> wavelengths of light. Mixing more colors together makes the result darker. Primary colors: <span class="text-red-400">Red</span>, <span class="text-yellow-300">Yellow</span>, <span class="text-blue-400">Blue</span>. Mixing all primaries → near black/brown. Used by painters, printmakers, and traditional artists.</p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-blue-400 mb-2">Additive (RGB / Light)</h3>
+        <p class="leading-relaxed">Used with light sources like screens and LEDs. Colors are formed by <strong class="text-blue-200">adding (combining)</strong> wavelengths of light. Mixing more colors makes the result brighter. Primary colors: <span class="text-red-400">Red</span>, <span class="text-green-400">Green</span>, <span class="text-blue-400">Blue</span>. Mixing all primaries → white. Used in monitors, projectors, and stage lighting.</p>
+      </div>
+    </div>
+    <div id="current-mode-note" class="mt-4 text-xs text-gray-400 bg-gray-700 rounded-lg p-3"></div>
+  </div>
+</div>
+
+<script>
+let currentMode = 'ryb';
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+}
+function rgbToHsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min){ h=s=0; }
+  else {
+    const d=max-min;
+    s=l>0.5?d/(2-max-min):d/(max+min);
+    switch(max){ case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; case b: h=(r-g)/d+4; break; }
+    h/=6;
+  }
+  return [h*360,s*100,l*100];
+}
+function hslToRgb(h,s,l) {
+  h/=360; s/=100; l/=100;
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else {
+    const hue2rgb=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+    const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+}
+
+// RGB to RYB and back
+function rgbToRyb(r,g,b) {
+  r/=255; g/=255; b/=255;
+  // Remove white
+  let w=Math.min(r,g,b);
+  r-=w; g-=w; b-=w;
+  let mg=Math.max(r,g,b);
+  // Get yellow from red+green
+  let y=Math.min(r,g);
+  r-=y; g-=y;
+  // Convert green to blue+yellow
+  if(g && b){ g/=2; b/=2; }
+  y+=g; b+=g;
+  // Normalize
+  let my=Math.max(r,y,b);
+  if(my){ let n=mg/my; r*=n; y*=n; b*=n; }
+  // Add back white
+  r+=w; y+=w; b+=w;
+  return [r*255,y*255,b*255];
+}
+function rybToRgb(r,y,b) {
+  r/=255; y/=255; b/=255;
+  let w=Math.min(r,y,b);
+  r-=w; y-=w; b-=w;
+  let my=Math.max(r,y,b);
+  let g=Math.min(y,b);
+  y-=g; b-=g;
+  if(b&&g){ b*=2; g*=2; }
+  r+=y; g+=y;
+  let mg=Math.max(r,g,b);
+  if(mg){ let n=my/mg; r*=n; g*=n; b*=n; }
+  r+=w; g+=w; b+=w;
+  return [r*255,g*255,b*255];
+}
+
+function mixRGB(c1, c2, t) {
+  // t=0 -> c1, t=1 -> c2
+  return c1.map((v,i) => v*(1-t) + c2[i]*t);
+}
+
+function mixRYB(c1rgb, c2rgb, t) {
+  const ryb1 = rgbToRyb(...c1rgb);
+  const ryb2 = rgbToRyb(...c2rgb);
+  const mixed = ryb1.map((v,i) => v*(1-t) + ryb2[i]*t);
+  return rybToRgb(...mixed);
+}
+
+// Named color lookup (subset of CSS named colors)
+const namedColors = [
+  ['black',[0,0,0]],['white',[255,255,255]],['red',[255,0,0]],['lime',[0,255,0]],
+  ['blue',[0,0,255]],['yellow',[255,255,0]],['cyan',[0,255,255]],['magenta',[255,0,255]],
+  ['silver',[192,192,192]],['gray',[128,128,128]],['maroon',[128,0,0]],['olive',[128,128,0]],
+  ['green',[0,128,0]],['purple',[128,0,128]],['teal',[0,128,128]],['navy',[0,0,128]],
+  ['orange',[255,165,0]],['orangered',[255,69,0]],['tomato',[255,99,71]],['coral',[255,127,80]],
+  ['gold',[255,215,0]],['khaki',[240,230,140]],['lawngreen',[124,252,0]],['chartreuse',[127,255,0]],
+  ['springgreen',[0,255,127]],['aquamarine',[127,255,212]],['deepskyblue',[0,191,255]],
+  ['dodgerblue',[30,144,255]],['royalblue',[65,105,225]],['indigo',[75,0,130]],
+  ['violet',[238,130,238]],['orchid',[218,112,214]],['hotpink',[255,105,180]],
+  ['deeppink',[255,20,147]],['pink',[255,192,203]],['lavender',[230,230,250]],
+  ['plum',[221,160,221]],['thistle',[216,191,216]],['tan',[210,180,140]],['peru',[205,133,63]],
+  ['sienna',[160,82,45]],['brown',[165,42,42]],['firebrick',[178,34,34]],['chocolate',[210,105,30]],
+  ['saddlebrown',[139,69,19]],['sandybrown',[244,164,96]],['bisque',[255,228,196]],
+  ['wheat',[245,222,179]],['cornsilk',[255,248,220]],['ivory',[255,255,240]],['beige',[245,245,220]],
+  ['linen',[250,240,230]],['lightgray',[211,211,211]],['darkgray',[169,169,169]],
+  ['dimgray',[105,105,105]],['slategray',[112,128,144]],['lightblue',[173,216,230]],
+  ['skyblue',[135,206,235]],['powderblue',[176,224,230]],['lightcyan',[224,255,255]],
+  ['palegreen',[152,251,152]],['lightgreen',[144,238,144]],['greenyellow',[173,255,47]],
+  ['yellowgreen',[154,205,50]],['mediumseagreen',[60,179,113]],['seagreen',[46,139,87]],
+  ['forestgreen',[34,139,34]],['darkgreen',[0,100,0]],['lightyellow',[255,255,224]],
+  ['lightsalmon',[255,160,122]],['salmon',[250,128,114]],['crimson',[220,20,60]],
+  ['darkorange',[255,140,0]],['goldenrod',[218,165,32]],['darkgoldenrod',[184,134,11]],
+  ['mediumorchid',[186,85,211]],['darkorchid',[153,50,204]],['darkviolet',[148,0,211]],
+  ['blueviolet',[138,43,226]],['mediumpurple',[147,112,219]],['slateblue',[106,90,205]],
+  ['steelblue',[70,130,180]],['cadetblue',[95,158,160]],['mediumturquoise',[72,209,204]],
+  ['turquoise',[64,224,208]],['darkturquoise',[0,206,209]],['darkcyan',[0,139,139]],
+  ['lightseagreen',[32,178,170]],['mediumspringgreen',[0,250,154]],['limegreen',[50,205,50]],
+];
+
+function nearestNamedColor(r,g,b) {
+  let best='', bestD=Infinity;
+  for(const [name,[nr,ng,nb]] of namedColors) {
+    const d=(r-nr)**2+(g-ng)**2+(b-nb)**2;
+    if(d<bestD){ bestD=d; best=name; }
+  }
+  return best;
+}
+
+function complementaryRgb(r,g,b) {
+  const [h,s,l] = rgbToHsl(r,g,b);
+  const h2 = (h+180)%360;
+  return hslToRgb(h2,s,l);
+}
+
+function drawColorWheel(c1rgb, c2rgb, mixRgb) {
+  const canvas = document.getElementById('color-wheel');
+  const ctx = canvas.getContext('2d');
+  const cx=130, cy=130, r=120, ir=50;
+  ctx.clearRect(0,0,260,260);
+
+  // Draw wheel
+  for(let deg=0; deg<360; deg++) {
+    const startAngle = (deg-1)*Math.PI/180;
+    const endAngle = (deg+1)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,startAngle,endAngle);
+    ctx.closePath();
+    ctx.fillStyle = `hsl(${deg},100%,50%)`;
+    ctx.fill();
+  }
+  // Inner hole
+  ctx.beginPath();
+  ctx.arc(cx,cy,ir,0,2*Math.PI);
+  ctx.fillStyle='#1f2937';
+  ctx.fill();
+
+  // Draw marker for c1
+  function drawMarker(rgb, label) {
+    const [h] = rgbToHsl(...rgb);
+    const angle = (h-90)*Math.PI/180;
+    const mr = (r+ir)/2;
+    const mx = cx + mr*Math.cos(angle);
+    const my = cy + mr*Math.sin(angle);
+    ctx.beginPath();
+    ctx.arc(mx,my,10,0,2*Math.PI);
+    ctx.fillStyle = rgbToHex(...rgb.map(Math.round));
+    ctx.fill();
+    ctx.strokeStyle='white';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.fillStyle='white';
+    ctx.font='bold 9px sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(label,mx,my);
+  }
+  drawMarker(c1rgb,'1');
+  drawMarker(c2rgb,'2');
+  drawMarker(mixRgb,'M');
+
+  // Draw mixed color in center
+  ctx.beginPath();
+  ctx.arc(cx,cy,ir-4,0,2*Math.PI);
+  ctx.fillStyle = rgbToHex(...mixRgb.map(Math.round));
+  ctx.fill();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  const bRyb = document.getElementById('btn-ryb');
+  const bRgb = document.getElementById('btn-rgb');
+  if(mode==='ryb') {
+    bRyb.className='px-6 py-2 rounded-full font-semibold transition-all bg-yellow-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-400';
+    bRyb.setAttribute('aria-pressed','true');
+    bRgb.className='px-6 py-2 rounded-full font-semibold transition-all text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400';
+    bRgb.setAttribute('aria-pressed','false');
+  } else {
+    bRgb.className='px-6 py-2 rounded-full font-semibold transition-all bg-blue-500 text-white focus:outline-none focus:ring-2 focus:ring-blue-400';
+    bRgb.setAttribute('aria-pressed','true');
+    bRyb.className='px-6 py-2 rounded-full font-semibold transition-all text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400';
+    bRyb.setAttribute('aria-pressed','false');
+  }
+  update();
+}
+
+function update() {
+  const c1h = document.getElementById('color1').value;
+  const c2h = document.getElementById('color2').value;
+  const t = document.getElementById('mix-slider').value/100;
+
+  const c1 = hexToRgb(c1h);
+  const c2 = hexToRgb(c2h);
+
+  document.getElementById('color1-hex').textContent = c1h;
+  document.getElementById('color2-hex').textContent = c2h;
+  document.getElementById('color1-swatch').style.background = c1h;
+  document.getElementById('color2-swatch').style.background = c2h;
+  document.getElementById('mix-label').textContent = `${Math.round((1-t)*100)}% / ${Math.round(t*100)}%`;
+
+  // Both mixing results
+  const rgbMixed = mixRGB(c1, c2, t).map(Math.round);
+  const rybMixed = mixRYB(c1, c2, t).map(Math.round);
+
+  const rgbHex = rgbToHex(...rgbMixed);
+  const rybHex = rgbToHex(...rybMixed);
+
+  document.getElementById('rgb-swatch').style.background = rgbHex;
+  document.getElementById('rgb-hex').textContent = rgbHex;
+  document.getElementById('rgb-name').textContent = nearestNamedColor(...rgbMixed);
+
+  document.getElementById('ryb-swatch').style.background = rybHex;
+  document.getElementById('ryb-hex').textContent = rybHex;
+  document.getElementById('ryb-name').textContent = nearestNamedColor(...rybMixed);
+
+  // Primary result based on mode
+  const primaryMix = currentMode==='ryb' ? rybMixed : rgbMixed;
+  const primaryHex = currentMode==='ryb' ? rybHex : rgbHex;
+  document.getElementById('result-swatch').style.background = primaryHex;
+  document.getElementById('result-hex').textContent = primaryHex;
+  document.getElementById('result-name').textContent = nearestNamedColor(...primaryMix);
+
+  // Complementary
+  const comp1 = complementaryRgb(...c1);
+  const comp2 = complementaryRgb(...c2);
+  document.getElementById('comp-c1').style.background = c1h;
+  document.getElementById('comp-c1-opp').style.background = rgbToHex(...comp1);
+  document.getElementById('comp-c2').style.background = c2h;
+  document.getElementById('comp-c2-opp').style.background = rgbToHex(...comp2);
+  document.getElementById('comp-c1-hex').textContent = `Comp of C1: ${rgbToHex(...comp1)}`;
+  document.getElementById('comp-c2-hex').textContent = `Comp of C2: ${rgbToHex(...comp2)}`;
+
+  // Color wheel
+  drawColorWheel(c1, c2, primaryMix);
+
+  // Mode note
+  const note = document.getElementById('current-mode-note');
+  if(currentMode==='ryb') {
+    note.textContent = 'Current mode: Paint/Pigment (RYB). Mixing uses subtractive color theory — pigments absorb light, so mixing tends toward darker, muddier tones. The primary result swatch above reflects RYB mixing.';
+  } else {
+    note.textContent = 'Current mode: Light (RGB). Mixing uses additive color theory — light sources combine, so mixing tends toward brighter, lighter tones. The primary result swatch above reflects RGB mixing.';
+  }
+}
+
+update();
+</script>
+</body>
+</html>
